@@ -473,12 +473,13 @@ function App() {
 
     const today = new Date();
 
+    // DAILY
+
     if (reportType === "daily") {
 
       filteredBills = bills.filter((bill) => {
 
-        const billDate =
-          new Date(bill.date);
+        const billDate = new Date(bill.date);
 
         return (
           billDate.toDateString() ===
@@ -489,42 +490,89 @@ function App() {
 
     }
 
-    else if (
-      reportType === "weekly"
-    ) {
+    // WEEKLY
 
-      const weekAgo =
-        new Date();
+    else if (reportType === "weekly") {
 
-      weekAgo.setDate(
-        today.getDate() - 7
-      );
+      const weekAgo = new Date();
+
+      weekAgo.setDate(today.getDate() - 7);
 
       filteredBills = bills.filter((bill) => {
 
-        const billDate =
-          new Date(bill.date);
+        const billDate = new Date(bill.date);
+
+        return billDate >= weekAgo;
+
+      });
+
+    }
+
+    // MONTHLY
+
+    else if (reportType === "monthly") {
+
+      filteredBills = bills.filter((bill) => {
+
+        const billDate = new Date(bill.date);
 
         return (
-          billDate >= weekAgo
+          billDate.getMonth() === today.getMonth() &&
+          billDate.getFullYear() === today.getFullYear()
         );
 
       });
 
     }
 
-    else {
+    // YEARLY
 
-      filteredBills = bills;
+    else if (reportType === "yearly") {
+
+      filteredBills = bills.filter((bill) => {
+
+        const billDate = new Date(bill.date);
+
+        return (
+          billDate.getFullYear() ===
+          today.getFullYear()
+        );
+
+      });
 
     }
 
-    const totalRevenue =
-      filteredBills.reduce(
-        (sum, bill) =>
-          sum + bill.total,
-        0
-      );
+    // TOTAL REVENUE
+
+    const totalRevenue = filteredBills.reduce(
+      (sum, bill) => sum + bill.total,
+      0
+    );
+
+    // MONTHLY REVENUE
+
+    const monthlyRevenue = {};
+
+    filteredBills.forEach((bill) => {
+
+      const billDate = new Date(bill.date);
+
+      const monthName =
+        billDate.toLocaleString("default", {
+          month: "long",
+        });
+
+      if (!monthlyRevenue[monthName]) {
+
+        monthlyRevenue[monthName] = 0;
+
+      }
+
+      monthlyRevenue[monthName] += bill.total;
+
+    });
+
+    // TITLE
 
     pdf.setFontSize(22);
 
@@ -537,28 +585,28 @@ function App() {
     pdf.setFontSize(12);
 
     pdf.text(
-      `Report Type: ${reportType.toUpperCase()}`,
+      `Report Type : ${reportType.toUpperCase()}`,
       14,
-      32
+      35
     );
 
     pdf.text(
-      `Total Bills: ${filteredBills.length}`,
+      `Total Bills : ${filteredBills.length}`,
       14,
-      40
+      45
     );
 
     pdf.text(
-      `Total Revenue: $${totalRevenue.toFixed(
-        2
-      )}`,
+      `Total Revenue : $${totalRevenue.toFixed(2)}`,
       14,
-      48
+      55
     );
+
+    // BILL TABLE
 
     autoTable(pdf, {
 
-      startY: 60,
+      startY: 70,
 
       head: [[
         "Bill No",
@@ -567,25 +615,49 @@ function App() {
         "Total"
       ]],
 
-      body:
-        filteredBills.map((bill) => [
+      body: filteredBills.map((bill) => [
 
-          bill.billNo,
+        bill.billNo,
 
-          bill.customerName,
+        bill.customerName,
 
-          bill.date,
+        bill.date,
 
-          `$${bill.total.toFixed(
-            2
-          )}`
+        `$${bill.total.toFixed(2)}`
 
-        ]),
+      ]),
 
     });
 
+    // MONTHLY REVENUE TABLE
+
+    const revenueRows = Object.entries(
+      monthlyRevenue
+    ).map(([month, revenue]) => [
+
+      month,
+
+      `$${revenue.toFixed(2)}`
+
+    ]);
+
+    autoTable(pdf, {
+
+      startY: pdf.lastAutoTable.finalY + 15,
+
+      head: [[
+        "Month",
+        "Revenue"
+      ]],
+
+      body: revenueRows,
+
+    });
+
+    // SAVE PDF
+
     pdf.save(
-      `${reportType}-report.pdf`
+      `${reportType}-sales-report.pdf`
     );
 
   };
@@ -905,6 +977,50 @@ function App() {
 
           </div>
 
+          {/* REPORT SECTION */}
+
+          <div className="report-box">
+
+            <h3>
+              Download Reports
+            </h3>
+
+            <select
+              value={reportType}
+              onChange={(e) =>
+                setReportType(
+                  e.target.value
+                )
+              }
+            >
+
+              <option value="daily">
+                Daily Report
+              </option>
+
+              <option value="weekly">
+                Weekly Report
+              </option>
+
+              <option value="monthly">
+                Monthly Report
+              </option>
+
+              <option value="yearly">
+                Yearly Report
+              </option>
+
+            </select>
+
+            <button
+              onClick={downloadReport}
+              className="save-btn"
+            >
+              Download PDF Report
+            </button>
+
+          </div>
+
           <div className="recent-history">
 
             {bills.map((bill) => (
@@ -1021,19 +1137,13 @@ function App() {
               }}
             />
 
-            <h2>
-              ATITHI PURE VEG
-            </h2>
-
+           
             <p>
-              Premium Indian Restaurant
+            5471 Falsbridge Dr NE, Calgary,
             </p>
-
             <p>
-              5471 Falsbridge Dr NE, Calgary, AB T3J 3E8, Canada
+              AB T3J 3E8, Canada
             </p>
-
-          
 
           </div>
 
@@ -1125,7 +1235,7 @@ function App() {
             <h3>
 
               <span>
-                 TOTAL
+                TOTAL
               </span>
 
               <span>
@@ -1147,7 +1257,8 @@ function App() {
             }}
           >
 
-            THANK YOU ❤️<br />
+            THANK YOU ❤️
+            <br />
             VISIT AGAIN
 
           </div>
