@@ -15,29 +15,37 @@ function App() {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
   const [bills, setBills] = useState([]);
+  const [selectedBill, setSelectedBill] = useState(null);
 
-  const [selectedBill, setSelectedBill] =
-    useState(null);
+  const [itemName, setItemName] = useState("");
+  const [rate, setRate] = useState("");
+  const [qty, setQty] = useState(1);
 
-  const [itemName, setItemName] =
+  const [customerName, setCustomerName] =
     useState("");
 
-  const [rate, setRate] =
-    useState("");
+  const [billCounter, setBillCounter] =
+    useState(
+      Number(
+        localStorage.getItem("billCounter")
+      ) || 1
+    );
 
-  const [qty, setQty] =
-    useState(1);
+  const [taxName, setTaxName] =
+    useState(
+      localStorage.getItem("taxName") ||
+      "HST"
+    );
+
+  const [taxRate, setTaxRate] =
+    useState(
+      Number(
+        localStorage.getItem("taxRate")
+      ) || 13
+    );
 
   const [reportType, setReportType] =
     useState("daily");
-
-  const [taxName, setTaxName] = useState(
-    localStorage.getItem("taxName") || "HST"
-  );
-
-  const [taxRate, setTaxRate] = useState(
-    Number(localStorage.getItem("taxRate")) || 13
-  );
 
   // LOAD DATA
 
@@ -54,7 +62,7 @@ function App() {
 
   }, []);
 
-  // FETCH MENU ITEMS
+  // FETCH MENU
 
   const fetchMenuItems = async () => {
 
@@ -66,8 +74,11 @@ function App() {
           .select("*");
 
       if (error) {
+
         console.log(error);
+
         return;
+
       }
 
       let allItems = [];
@@ -122,7 +133,7 @@ function App() {
 
   };
 
-  // SAVE LOCAL STORAGE
+  // SAVE STORAGE
 
   useEffect(() => {
 
@@ -132,8 +143,6 @@ function App() {
     );
 
   }, [bills]);
-
-  // SAVE TAX
 
   useEffect(() => {
 
@@ -148,6 +157,15 @@ function App() {
     );
 
   }, [taxName, taxRate]);
+
+  useEffect(() => {
+
+    localStorage.setItem(
+      "billCounter",
+      billCounter
+    );
+
+  }, [billCounter]);
 
   // ADD ITEM
 
@@ -236,7 +254,9 @@ function App() {
       id: Date.now(),
 
       billNo:
-        "BILL-" + Date.now(),
+        "BILL-" + billCounter,
+
+      customerName,
 
       date:
         new Date().toLocaleString(),
@@ -255,8 +275,6 @@ function App() {
 
     };
 
-    // SAVE HISTORY
-
     const updatedBills = [
       bill,
       ...bills,
@@ -264,11 +282,11 @@ function App() {
 
     setBills(updatedBills);
 
-    // SHOW RECENT BILL
+    setBillCounter(
+      billCounter + 1
+    );
 
     setSelectedBill(bill);
-
-    // CLEAR BILLING TABLE
 
     setItems([]);
 
@@ -278,11 +296,23 @@ function App() {
 
     setQty(1);
 
+    setCustomerName("");
+
+    alert("Bill Saved");
+
   };
 
   // PRINT BILL
 
   const printBill = () => {
+
+    if (!receiptRef.current) {
+
+      alert("Bill not found");
+
+      return;
+
+    }
 
     const printContents =
       receiptRef.current.innerHTML;
@@ -300,7 +330,7 @@ function App() {
 
         <head>
 
-          
+          <title>ATITHI BILL</title>
 
           <style>
 
@@ -312,36 +342,18 @@ function App() {
             body {
 
               width: 80mm;
-
               margin: 0;
-
               padding: 10px;
-
               font-family: Arial;
-
               background: #fff;
-
               color: #000;
 
-            }
-
-            .receipt-header{
-              text-align:center;
-            }
-
-            .receipt-logo{
-              width:70px;
-              margin-bottom:8px;
             }
 
             h2{
               margin:0;
               font-size:22px;
-            }
-
-            h4{
-              margin:4px 0;
-              font-size:14px;
+              text-align:center;
             }
 
             p{
@@ -360,25 +372,22 @@ function App() {
               border-collapse:collapse;
             }
 
+            .receipt-table th{
+              font-size:12px;
+              padding:5px 0;
+              border-bottom:1px dashed #000;
+              text-align:left;
+            }
+
             .receipt-table td{
               padding:5px 0;
               font-size:12px;
-            }
-
-            .receipt-summary{
-              margin-top:10px;
             }
 
             .receipt-summary p,
             .receipt-summary h3{
               display:flex;
               justify-content:space-between;
-            }
-
-            .thanks{
-              text-align:center;
-              margin-top:15px;
-              font-weight:bold;
             }
 
           </style>
@@ -388,13 +397,6 @@ function App() {
         <body>
 
           ${printContents}
-
-          <div class="thanks">
-
-            THANK YOU ❤️<br/>
-            VISIT AGAIN
-
-          </div>
 
         </body>
 
@@ -416,9 +418,17 @@ function App() {
 
   };
 
-  // DOWNLOAD PDF
+  // PDF
 
   const downloadPDF = async () => {
+
+    if (!receiptRef.current) {
+
+      alert("Bill not found");
+
+      return;
+
+    }
 
     const canvas =
       await html2canvas(
@@ -429,13 +439,9 @@ function App() {
       canvas.toDataURL("image/png");
 
     const pdf = new jsPDF({
-
       orientation: "portrait",
-
       unit: "mm",
-
       format: [80, 200],
-
     });
 
     const pdfWidth = 80;
@@ -453,11 +459,11 @@ function App() {
       pdfHeight
     );
 
-    pdf.save("bill.pdf");
+    pdf.save("Atithi-Bill.pdf");
 
   };
 
-  // REPORT DOWNLOAD
+  // REPORT PDF
 
   const downloadReport = () => {
 
@@ -484,8 +490,15 @@ function App() {
     }
 
     else if (
-      reportType === "monthly"
+      reportType === "weekly"
     ) {
+
+      const weekAgo =
+        new Date();
+
+      weekAgo.setDate(
+        today.getDate() - 7
+      );
 
       filteredBills = bills.filter((bill) => {
 
@@ -493,13 +506,7 @@ function App() {
           new Date(bill.date);
 
         return (
-
-          billDate.getMonth() ===
-            today.getMonth() &&
-
-          billDate.getFullYear() ===
-            today.getFullYear()
-
+          billDate >= weekAgo
         );
 
       });
@@ -508,30 +515,18 @@ function App() {
 
     else {
 
-      filteredBills = bills.filter((bill) => {
-
-        const billDate =
-          new Date(bill.date);
-
-        return (
-
-          billDate.getFullYear() ===
-          today.getFullYear()
-
-        );
-
-      });
+      filteredBills = bills;
 
     }
 
-    const totalSales =
+    const totalRevenue =
       filteredBills.reduce(
         (sum, bill) =>
           sum + bill.total,
         0
       );
 
-    pdf.setFontSize(20);
+    pdf.setFontSize(22);
 
     pdf.text(
       "ATITHI SALES REPORT",
@@ -544,43 +539,48 @@ function App() {
     pdf.text(
       `Report Type: ${reportType.toUpperCase()}`,
       14,
-      30
+      32
     );
 
     pdf.text(
       `Total Bills: ${filteredBills.length}`,
       14,
-      38
+      40
     );
 
     pdf.text(
-      `Total Sales: $${totalSales.toFixed(2)}`,
+      `Total Revenue: $${totalRevenue.toFixed(
+        2
+      )}`,
       14,
-      46
+      48
     );
 
     autoTable(pdf, {
 
-      startY: 55,
+      startY: 60,
 
       head: [[
         "Bill No",
+        "Customer",
         "Date",
-        "Items",
         "Total"
       ]],
 
-      body: filteredBills.map((bill) => [
+      body:
+        filteredBills.map((bill) => [
 
-        bill.billNo,
+          bill.billNo,
 
-        bill.date,
+          bill.customerName,
 
-        bill.items.length,
+          bill.date,
 
-        `$${bill.total.toFixed(2)}`
+          `$${bill.total.toFixed(
+            2
+          )}`
 
-      ]),
+        ]),
 
     });
 
@@ -613,7 +613,7 @@ function App() {
             </h1>
 
             <p>
-              PURE VEG
+              PREMIUM BILLING
             </p>
 
           </div>
@@ -649,8 +649,23 @@ function App() {
         <div className="card-box">
 
           <h2>
-            Create Bill
+            Create Premium Bill
           </h2>
+
+          <div className="form-row">
+
+            <input
+              type="text"
+              placeholder="Customer Name"
+              value={customerName}
+              onChange={(e) =>
+                setCustomerName(
+                  e.target.value
+                )
+              }
+            />
+
+          </div>
 
           {/* TAX */}
 
@@ -673,16 +688,14 @@ function App() {
               placeholder="Tax %"
               onChange={(e) =>
                 setTaxRate(
-                  Number(
-                    e.target.value
-                  )
+                  Number(e.target.value)
                 )
               }
             />
 
           </div>
 
-          {/* SEARCH */}
+          {/* ITEM SECTION */}
 
           <div className="form-row">
 
@@ -769,25 +782,11 @@ function App() {
 
               <tr>
 
-                <th>
-                  Item
-                </th>
-
-                <th>
-                  Rate
-                </th>
-
-                <th>
-                  Qty
-                </th>
-
-                <th>
-                  Total
-                </th>
-
-                <th>
-                  Delete
-                </th>
+                <th>Item</th>
+                <th>Price</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th>Delete</th>
 
               </tr>
 
@@ -795,52 +794,43 @@ function App() {
 
             <tbody>
 
-              {items.map(
-                (item, index) => (
+              {items.map((item, index) => (
 
-                  <tr key={index}>
+                <tr key={index}>
 
-                    <td>
-                      {
-                        item.itemName
+                  <td>
+                    {item.itemName}
+                  </td>
+
+                  <td>
+                    ${item.rate}
+                  </td>
+
+                  <td>
+                    {item.qty}
+                  </td>
+
+                  <td>
+                    $
+                    {item.total.toFixed(2)}
+                  </td>
+
+                  <td>
+
+                    <button
+                      className="delete-btn"
+                      onClick={() =>
+                        removeItem(index)
                       }
-                    </td>
+                    >
+                      X
+                    </button>
 
-                    <td>
-                      $
-                      {item.rate}
-                    </td>
+                  </td>
 
-                    <td>
-                      {item.qty}
-                    </td>
+                </tr>
 
-                    <td>
-                      $
-                      {item.total.toFixed(
-                        2
-                      )}
-                    </td>
-
-                    <td>
-
-                      <button
-                        className="delete-btn"
-                        onClick={() =>
-                          removeItem(
-                            index
-                          )
-                        }
-                      >
-                        X
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                )
-              )}
+              ))}
 
             </tbody>
 
@@ -853,28 +843,25 @@ function App() {
             <h3>
               Subtotal :
               $
-              {subtotal.toFixed(
-                2
-              )}
+              {subtotal.toFixed(2)}
             </h3>
 
             <h3>
               {taxName}
-              {" ("}
-              {taxRate}
-              {"%) : $"}
+              (
+              {taxRate}%)
+              :
+              $
               {tax.toFixed(2)}
             </h3>
 
             <h2>
-              Total :
+              Grand Total :
               $
               {total.toFixed(2)}
             </h2>
 
           </div>
-
-          {/* SAVE */}
 
           <button
             className="save-btn"
@@ -882,198 +869,6 @@ function App() {
           >
             Save Bill
           </button>
-
-          {/* RECENT SAVED BILL */}
-
-          {selectedBill && (
-
-            <div
-              style={{
-                marginTop: "30px",
-              }}
-            >
-
-              <h2>
-                Recent Saved Bill
-              </h2>
-
-              <div
-                className="thermal-receipt"
-                ref={receiptRef}
-              >
-
-                <div className="receipt-header">
-
-                  <img
-                    src={logo}
-                    alt="logo"
-                    className="receipt-logo"
-                  />
-
-                  <h2>
-                    ATITHI
-                  </h2>
-
-                  <h4>
-                    PURE VEG
-                  </h4>
-
-                  <p>
-                    Calgary, Canada
-                  </p>
-
-                  <p>
-                    +1
-                    587-333-2292
-                  </p>
-
-                </div>
-
-                <hr />
-
-                <p>
-                  Bill :
-                  {
-                    selectedBill.billNo
-                  }
-                </p>
-
-                <p>
-                  Date :
-                  {
-                    selectedBill.date
-                  }
-                </p>
-
-                <hr />
-
-                <table className="receipt-table">
-
-                  <tbody>
-
-                    {selectedBill.items.map(
-                      (
-                        item,
-                        index
-                      ) => (
-
-                        <tr
-                          key={index}
-                        >
-
-                          <td>
-                            {
-                              item.itemName
-                            }
-                          </td>
-
-                          <td>
-                            {
-                              item.qty
-                            }
-                          </td>
-
-                          <td>
-                            $
-                            {item.total.toFixed(
-                              2
-                            )}
-                          </td>
-
-                        </tr>
-
-                      )
-                    )}
-
-                  </tbody>
-
-                </table>
-
-                <hr />
-
-                <div className="receipt-summary">
-
-                  <p>
-
-                    <span>
-                      Subtotal
-                    </span>
-
-                    <span>
-                      $
-                      {selectedBill.subtotal.toFixed(
-                        2
-                      )}
-                    </span>
-
-                  </p>
-
-                  <p>
-
-                    <span>
-                      {
-                        selectedBill.taxName
-                      }
-                    </span>
-
-                    <span>
-                      $
-                      {selectedBill.tax.toFixed(
-                        2
-                      )}
-                    </span>
-
-                  </p>
-
-                  <h3>
-
-                    <span>
-                      Total
-                    </span>
-
-                    <span>
-                      $
-                      {selectedBill.total.toFixed(
-                        2
-                      )}
-                    </span>
-
-                  </h3>
-
-                </div>
-
-              </div>
-
-              {/* BUTTONS */}
-
-              <div
-                className="receipt-buttons"
-                style={{
-                  marginTop: "20px",
-                }}
-              >
-
-                <button
-                  onClick={
-                    printBill
-                  }
-                >
-                  Print Bill
-                </button>
-
-                <button
-                  onClick={
-                    downloadPDF
-                  }
-                >
-                  Download PDF
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
 
         </div>
 
@@ -1085,64 +880,9 @@ function App() {
 
         <div className="card-box">
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "15px",
-              marginBottom: "20px",
-            }}
-          >
-
-            <h2>
-              Billing History
-            </h2>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "10px",
-                flexWrap: "wrap",
-              }}
-            >
-
-              <select
-                value={reportType}
-                onChange={(e) =>
-                  setReportType(
-                    e.target.value
-                  )
-                }
-              >
-
-                <option value="daily">
-                  Daily Report
-                </option>
-
-                <option value="monthly">
-                  Monthly Report
-                </option>
-
-                <option value="yearly">
-                  Yearly Report
-                </option>
-
-              </select>
-
-              <button
-                onClick={
-                  downloadReport
-                }
-              >
-                Download PDF
-              </button>
-
-            </div>
-
-          </div>
+          <h2>
+            Billing History
+          </h2>
 
           <div className="summary">
 
@@ -1167,10 +907,6 @@ function App() {
 
           <div className="recent-history">
 
-            <h3>
-              All Saved Bills
-            </h3>
-
             {bills.map((bill) => (
 
               <div
@@ -1185,15 +921,17 @@ function App() {
                   </strong>
 
                   <p>
+                    {bill.customerName}
+                  </p>
+
+                  <p>
                     {bill.date}
                   </p>
 
                   <p>
                     Total :
                     $
-                    {bill.total.toFixed(
-                      2
-                    )}
+                    {bill.total.toFixed(2)}
                   </p>
 
                 </div>
@@ -1252,6 +990,171 @@ function App() {
         </div>
 
       )}
+
+      {/* HIDDEN RECEIPT */}
+
+      <div
+        ref={receiptRef}
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          background: "#fff",
+          padding: "20px",
+          width: "300px",
+        }}
+      >
+
+        <div>
+
+          <div
+            style={{
+              textAlign: "center",
+            }}
+          >
+
+            <img
+              src={logo}
+              alt="logo"
+              style={{
+                width: "70px",
+                marginBottom: "8px",
+              }}
+            />
+
+            <h2>
+              ATITHI PURE VEG
+            </h2>
+
+            <p>
+              Premium Indian Restaurant
+            </p>
+
+            <p>
+              5471 Falsbridge Dr NE, Calgary, AB T3J 3E8, Canada
+            </p>
+
+          
+
+          </div>
+
+          <hr />
+
+          <p>
+            Customer :
+            {selectedBill?.customerName}
+          </p>
+
+          <hr />
+
+          <table className="receipt-table">
+
+            <thead>
+
+              <tr>
+
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Total</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {(selectedBill?.items || []).map(
+                (item, index) => (
+
+                  <tr key={index}>
+
+                    <td>
+                      {item.itemName}
+                    </td>
+
+                    <td>
+                      {item.qty}
+                    </td>
+
+                    <td>
+                      $
+                      {item.total.toFixed(2)}
+                    </td>
+
+                  </tr>
+
+                )
+              )}
+
+            </tbody>
+
+          </table>
+
+          <hr />
+
+          <div className="receipt-summary">
+
+            <p>
+
+              <span>
+                Subtotal
+              </span>
+
+              <span>
+                $
+                {selectedBill?.subtotal?.toFixed(2)}
+              </span>
+
+            </p>
+
+            <p>
+
+              <span>
+                {selectedBill?.taxName}
+                (
+                {selectedBill?.taxRate}
+                %)
+              </span>
+
+              <span>
+                $
+                {selectedBill?.tax?.toFixed(2)}
+              </span>
+
+            </p>
+
+            <h3>
+
+              <span>
+                 TOTAL
+              </span>
+
+              <span>
+                $
+                {selectedBill?.total?.toFixed(2)}
+              </span>
+
+            </h3>
+
+          </div>
+
+          <hr />
+
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: "15px",
+              fontWeight: "bold",
+            }}
+          >
+
+            THANK YOU ❤️<br />
+            VISIT AGAIN
+
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
 
