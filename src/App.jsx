@@ -3,146 +3,160 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { supabase } from "./supabase";
-import logo from "../src/assets/Atithi Logo.png";
+import logo from "./assets/Atithi Logo.png";
 import "./App.css";
 
 function App() {
 
+  const ADMIN_PASSWORD = "Atithi1212";
+
   const receiptRef = useRef();
 
-  const [page, setPage] = useState("billing");
+  const [page, setPage] =
+    useState("billing");
 
-  const [products, setProducts] = useState([]);
-  const [items, setItems] = useState([]);
-  const [bills, setBills] = useState([]);
-  const [selectedBill, setSelectedBill] = useState(null);
+  const [products, setProducts] =
+    useState([]);
 
-  const [itemName, setItemName] = useState("");
-  const [rate, setRate] = useState("");
-  const [qty, setQty] = useState(1);
+  const [todayBills, setTodayBills] =
+    useState([]);
+
+  const [historyBills, setHistoryBills] =
+    useState([]);
+
+  const [selectedBill, setSelectedBill] =
+    useState(null);
+
+  // NEW STATES
+
+  const [selectedDayBills, setSelectedDayBills] =
+    useState([]);
+
+  const [selectedDay, setSelectedDay] =
+    useState("");
+
+  const [items, setItems] =
+    useState([]);
+
+  const [itemName, setItemName] =
+    useState("");
+
+  const [rate, setRate] =
+    useState("");
+
+  const [qty, setQty] =
+    useState(1);
 
   const [customerName, setCustomerName] =
     useState("");
 
-  const [billCounter, setBillCounter] =
-    useState(
-      Number(
-        localStorage.getItem("billCounter")
-      ) || 1
+  const [shiftPerson, setShiftPerson] =
+    useState("");
+
+  const [paymentMethod, setPaymentMethod] =
+    useState("Cash");
+
+  const [cardType, setCardType] =
+    useState("");
+
+  const [taxUnlocked, setTaxUnlocked] =
+    useState(false);
+
+    const [reportDate, setReportDate] =
+  useState("");
+
+const [reportMonth, setReportMonth] =
+  useState("");
+
+const [reportYear, setReportYear] =
+  useState("");
+
+  // DAILY BILL COUNTER
+
+  const todayDate =
+    new Date()
+      .toLocaleDateString();
+
+  const savedDate =
+    localStorage.getItem(
+      "billDate"
     );
+
+  const savedCounter =
+    Number(
+      localStorage.getItem(
+        "billCounter"
+      )
+    ) || 1;
+
+  const startingCounter =
+    savedDate === todayDate
+      ? savedCounter
+      : 1;
+
+  const [billCounter, setBillCounter] =
+    useState(startingCounter);
 
   const [taxName, setTaxName] =
     useState(
-      localStorage.getItem("taxName") ||
-      "HST"
+      localStorage.getItem(
+        "taxName"
+      ) || "HST"
     );
 
   const [taxRate, setTaxRate] =
     useState(
       Number(
-        localStorage.getItem("taxRate")
+        localStorage.getItem(
+          "taxRate"
+        )
       ) || 13
     );
 
-  const [reportType, setReportType] =
-    useState("daily");
-
-  // LOAD DATA
+  // LOAD STORAGE
 
   useEffect(() => {
 
-    fetchMenuItems();
-
-    const savedBills =
+fetchProducts();
+    const savedTodayBills =
       JSON.parse(
-        localStorage.getItem("bills")
+        localStorage.getItem(
+          "todayBills"
+        )
       ) || [];
 
-    setBills(savedBills);
+    const savedHistoryBills =
+      JSON.parse(
+        localStorage.getItem(
+          "historyBills"
+        )
+      ) || [];
+
+    setTodayBills(savedTodayBills);
+
+    setHistoryBills(savedHistoryBills);
 
   }, []);
-
-  // FETCH MENU
-
-  const fetchMenuItems = async () => {
-
-    try {
-
-      const { data, error } =
-        await supabase
-          .from("menu")
-          .select("*");
-
-      if (error) {
-
-        console.log(error);
-
-        return;
-
-      }
-
-      let allItems = [];
-
-      if (data && data.length > 0) {
-
-        data.forEach((section) => {
-
-          if (
-            section.items &&
-            Array.isArray(section.items)
-          ) {
-
-            section.items.forEach((item) => {
-
-              if (
-                item?.name &&
-                item?.price
-              ) {
-
-                allItems.push({
-
-                  id:
-                    item.name +
-                    Math.random(),
-
-                  name:
-                    item.name,
-
-                  rate:
-                    Number(item.price),
-
-                });
-
-              }
-
-            });
-
-          }
-
-        });
-
-      }
-
-      setProducts(allItems);
-
-    } catch (err) {
-
-      console.log(err);
-
-    }
-
-  };
 
   // SAVE STORAGE
 
   useEffect(() => {
 
     localStorage.setItem(
-      "bills",
-      JSON.stringify(bills)
+      "todayBills",
+      JSON.stringify(todayBills)
     );
 
-  }, [bills]);
+  }, [todayBills]);
+
+  useEffect(() => {
+
+    localStorage.setItem(
+      "historyBills",
+      JSON.stringify(historyBills)
+    );
+
+  }, [historyBills]);
 
   useEffect(() => {
 
@@ -158,6 +172,8 @@ function App() {
 
   }, [taxName, taxRate]);
 
+  // DAILY COUNTER SAVE
+
   useEffect(() => {
 
     localStorage.setItem(
@@ -165,13 +181,89 @@ function App() {
       billCounter
     );
 
-  }, [billCounter]);
+    localStorage.setItem(
+      "billDate",
+      todayDate
+    );
+
+  }, [billCounter, todayDate]);
+
+  // FETCH MENU
+
+  const fetchProducts = async () => {
+
+  try {
+
+    const { data, error } =
+      await supabase
+        .from("menu")
+        .select("*");
+
+    if (error) {
+
+      console.log(error);
+
+      return;
+
+    }
+
+    const allItems = [];
+
+    data.forEach((category) => {
+
+      if (
+        category &&
+        Array.isArray(category.items)
+      ) {
+
+        category.items.forEach(
+          (item, index) => {
+
+            allItems.push({
+
+              id:
+                `${category.id}-${index}`,
+
+              name:
+                item.name || "",
+
+              rate:
+                Number(
+                  item.price || 0
+                ),
+
+              category:
+                category.title || "",
+
+            });
+
+          }
+        );
+
+      }
+
+    });
+
+    setProducts(allItems);
+
+  } catch (err) {
+
+    console.log(err);
+
+  }
+
+};
+
 
   // ADD ITEM
 
   const addItem = () => {
 
-    if (!itemName || !qty) {
+    if (
+      !itemName ||
+      !qty ||
+      !rate
+    ) {
 
       alert("Fill all fields");
 
@@ -187,7 +279,9 @@ function App() {
 
       qty,
 
-      total: rate * qty,
+      total:
+        Number(rate) *
+        Number(qty),
 
     };
 
@@ -197,7 +291,9 @@ function App() {
     ]);
 
     setItemName("");
+
     setRate("");
+
     setQty(1);
 
   };
@@ -205,13 +301,6 @@ function App() {
   // REMOVE ITEM
 
   const removeItem = (index) => {
-
-    if (
-      !window.confirm(
-        "Delete item?"
-      )
-    )
-      return;
 
     const updated =
       items.filter(
@@ -243,11 +332,28 @@ function App() {
 
     if (items.length === 0) {
 
-      alert("Add items first");
+      alert("Add items");
 
       return;
 
     }
+
+    const today = new Date();
+
+const currentDate =
+  `${String(
+    today.getDate()
+  ).padStart(2, "0")}/${
+    String(
+      today.getMonth() + 1
+    ).padStart(2, "0")
+  }/${
+    today.getFullYear()
+  }`;
+
+    const currentTime =
+      new Date()
+        .toLocaleTimeString();
 
     const bill = {
 
@@ -258,8 +364,15 @@ function App() {
 
       customerName,
 
-      date:
-        new Date().toLocaleString(),
+      shiftPerson,
+
+      paymentMethod,
+
+      cardType,
+
+      date: currentDate,
+
+      time: currentTime,
 
       items,
 
@@ -277,16 +390,16 @@ function App() {
 
     const updatedBills = [
       bill,
-      ...bills,
+      ...todayBills,
     ];
 
-    setBills(updatedBills);
-
-    setBillCounter(
-      billCounter + 1
-    );
+    setTodayBills(updatedBills);
 
     setSelectedBill(bill);
+
+    setBillCounter(
+      (prev) => prev + 1
+    );
 
     setItems([]);
 
@@ -298,7 +411,76 @@ function App() {
 
     setCustomerName("");
 
+    setShiftPerson("");
+
+    setPaymentMethod("Cash");
+
+    setCardType("");
+
     alert("Bill Saved");
+
+  };
+
+  // CLOSE SHIFT
+
+  const closeShift = () => {
+
+    if (
+      todayBills.length === 0
+    ) {
+
+      alert("No Bills");
+
+      return;
+
+    }
+const today = new Date();
+
+const groupedDate =
+  `${String(
+    today.getDate()
+  ).padStart(2, "0")}/${
+    String(
+      today.getMonth() + 1
+    ).padStart(2, "0")
+  }/${
+    today.getFullYear()
+  }`;
+
+    const totalRevenue =
+      todayBills.reduce(
+        (sum, bill) =>
+          sum + bill.total,
+        0
+      );
+
+    const shiftData = {
+
+      id: Date.now(),
+
+      date: groupedDate,
+
+      totalRevenue,
+
+      billsCount:
+        todayBills.length,
+
+      bills: todayBills,
+
+    };
+
+    const updatedHistory = [
+      shiftData,
+      ...historyBills,
+    ];
+
+    setHistoryBills(updatedHistory);
+
+    setTodayBills([]);
+
+    alert(
+      "Day Closed Successfully"
+    );
 
   };
 
@@ -350,44 +532,14 @@ function App() {
 
             }
 
-            h2{
-              margin:0;
-              font-size:22px;
-              text-align:center;
-            }
-
-            p{
-              margin:3px 0;
-              font-size:12px;
-            }
-
-            hr{
-              border:none;
-              border-top:1px dashed #000;
-              margin:10px 0;
-            }
-
-            .receipt-table{
+            table{
               width:100%;
               border-collapse:collapse;
             }
 
-            .receipt-table th{
+            td,th{
+              padding:5px;
               font-size:12px;
-              padding:5px 0;
-              border-bottom:1px dashed #000;
-              text-align:left;
-            }
-
-            .receipt-table td{
-              padding:5px 0;
-              font-size:12px;
-            }
-
-            .receipt-summary p,
-            .receipt-summary h3{
-              display:flex;
-              justify-content:space-between;
             }
 
           </style>
@@ -418,17 +570,12 @@ function App() {
 
   };
 
-  // PDF
+  // DOWNLOAD PDF
 
   const downloadPDF = async () => {
 
-    if (!receiptRef.current) {
-
-      alert("Bill not found");
-
+    if (!receiptRef.current)
       return;
-
-    }
 
     const canvas =
       await html2canvas(
@@ -441,13 +588,13 @@ function App() {
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: [80, 200],
+      format: [80, 220],
     });
 
-    const pdfWidth = 80;
+    const width = 80;
 
-    const pdfHeight =
-      (canvas.height * pdfWidth) /
+    const height =
+      (canvas.height * width) /
       canvas.width;
 
     pdf.addImage(
@@ -455,212 +602,855 @@ function App() {
       "PNG",
       0,
       0,
-      pdfWidth,
-      pdfHeight
+      width,
+      height
     );
 
-    pdf.save("Atithi-Bill.pdf");
+    pdf.save(
+      "Atithi-Bill.pdf"
+    );
 
   };
 
-  // REPORT PDF
+  // REPORT
 
-  const downloadReport = () => {
+  //daily report 
+ const downloadDailyReport = () => {
 
-    const pdf = new jsPDF();
+  if (!reportDate) {
 
-    let filteredBills = [];
+    alert("Select Date");
 
-    const today = new Date();
+    return;
 
-    // DAILY
+  }
 
-    if (reportType === "daily") {
+  try {
 
-      filteredBills = bills.filter((bill) => {
+    const doc = new jsPDF();
 
-        const billDate = new Date(bill.date);
+    doc.setFontSize(18);
 
-        return (
-          billDate.toDateString() ===
-          today.toDateString()
-        );
+    doc.text("Daily Report", 14, 20);
 
-      });
+    let allBills = [];
 
-    }
+    historyBills.forEach((day) => {
 
-    // WEEKLY
+      if (
+        !day ||
+        !day.date ||
+        !Array.isArray(day.bills)
+      ) {
 
-    else if (reportType === "weekly") {
-
-      const weekAgo = new Date();
-
-      weekAgo.setDate(today.getDate() - 7);
-
-      filteredBills = bills.filter((bill) => {
-
-        const billDate = new Date(bill.date);
-
-        return billDate >= weekAgo;
-
-      });
-
-    }
-
-    // MONTHLY
-
-    else if (reportType === "monthly") {
-
-      filteredBills = bills.filter((bill) => {
-
-        const billDate = new Date(bill.date);
-
-        return (
-          billDate.getMonth() === today.getMonth() &&
-          billDate.getFullYear() === today.getFullYear()
-        );
-
-      });
-
-    }
-
-    // YEARLY
-
-    else if (reportType === "yearly") {
-
-      filteredBills = bills.filter((bill) => {
-
-        const billDate = new Date(bill.date);
-
-        return (
-          billDate.getFullYear() ===
-          today.getFullYear()
-        );
-
-      });
-
-    }
-
-    // TOTAL REVENUE
-
-    const totalRevenue = filteredBills.reduce(
-      (sum, bill) => sum + bill.total,
-      0
-    );
-
-    // MONTHLY REVENUE
-
-    const monthlyRevenue = {};
-
-    filteredBills.forEach((bill) => {
-
-      const billDate = new Date(bill.date);
-
-      const monthName =
-        billDate.toLocaleString("default", {
-          month: "long",
-        });
-
-      if (!monthlyRevenue[monthName]) {
-
-        monthlyRevenue[monthName] = 0;
+        return;
 
       }
 
-      monthlyRevenue[monthName] += bill.total;
+      const parts =
+        String(day.date).split("/");
+
+      const formattedDate =
+        `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+
+      if (
+        formattedDate === reportDate
+      ) {
+
+        allBills.push(
+          ...day.bills
+        );
+
+      }
 
     });
 
-    // TITLE
+    if (allBills.length === 0) {
 
-    pdf.setFontSize(22);
+      alert("No Data Found");
 
-    pdf.text(
-      "ATITHI SALES REPORT",
-      14,
-      20
-    );
+      return;
 
-    pdf.setFontSize(12);
+    }
 
-    pdf.text(
-      `Report Type : ${reportType.toUpperCase()}`,
-      14,
-      35
-    );
+    const tableData = [];
 
-    pdf.text(
-      `Total Bills : ${filteredBills.length}`,
-      14,
-      45
-    );
+    const itemSummary = {};
 
-    pdf.text(
-      `Total Revenue : $${totalRevenue.toFixed(2)}`,
-      14,
-      55
-    );
+    let subtotalAmount = 0;
 
-    // BILL TABLE
+    let taxAmount = 0;
 
-    autoTable(pdf, {
+    let finalAmount = 0;
 
-      startY: 70,
+    allBills.forEach((bill) => {
 
-      head: [[
-        "Bill No",
-        "Customer",
-        "Date",
-        "Total"
-      ]],
+      subtotalAmount += Number(
+        bill.subtotal || 0
+      );
 
-      body: filteredBills.map((bill) => [
+      taxAmount += Number(
+        bill.tax || 0
+      );
+
+      finalAmount += Number(
+        bill.total || 0
+      );
+
+      const itemsText =
+        bill.items
+          .map(
+            (item) =>
+              `${item.itemName} (${item.qty})`
+          )
+          .join(", ");
+
+      tableData.push([
 
         bill.billNo,
 
-        bill.customerName,
+        bill.customerName || "-",
 
-        bill.date,
+        bill.shiftPerson || "-",
 
-        `$${bill.total.toFixed(2)}`
+        bill.paymentMethod || "-",
 
-      ]),
+        itemsText,
+
+        `$${Number(
+          bill.total || 0
+        ).toFixed(2)}`,
+
+      ]);
+
+      bill.items.forEach((item) => {
+
+        if (
+          !itemSummary[
+            item.itemName
+          ]
+        ) {
+
+          itemSummary[
+            item.itemName
+          ] = {
+
+            qty: 0,
+
+            revenue: 0,
+
+          };
+
+        }
+
+        itemSummary[
+          item.itemName
+        ].qty += Number(item.qty);
+
+        itemSummary[
+          item.itemName
+        ].revenue += Number(
+          item.total
+        );
+
+      });
 
     });
 
-    // MONTHLY REVENUE TABLE
-
-    const revenueRows = Object.entries(
-      monthlyRevenue
-    ).map(([month, revenue]) => [
-
-      month,
-
-      `$${revenue.toFixed(2)}`
-
-    ]);
-
-    autoTable(pdf, {
-
-      startY: pdf.lastAutoTable.finalY + 15,
+    autoTable(doc, {
 
       head: [[
-        "Month",
-        "Revenue"
+
+        "Bill No",
+
+        "Customer",
+
+        "Shift Person",
+
+        "Payment",
+
+        "Items",
+
+        "Final Total",
+
       ]],
 
-      body: revenueRows,
+      body: tableData,
+
+      startY: 30,
 
     });
 
-    // SAVE PDF
+    const summaryData =
+      Object.keys(
+        itemSummary
+      ).map((itemName) => [
 
-    pdf.save(
-      `${reportType}-sales-report.pdf`
+        itemName,
+
+        itemSummary[
+          itemName
+        ].qty,
+
+        `$${itemSummary[
+          itemName
+        ].revenue.toFixed(2)}`,
+
+      ]);
+
+    const summaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(16);
+
+    doc.text(
+      "Product Sales Summary",
+      14,
+      summaryY
     );
 
-  };
+    autoTable(doc, {
+
+      startY: summaryY + 10,
+
+      head: [[
+        "Product",
+        "Qty Sold",
+        "Revenue",
+      ]],
+
+      body: summaryData,
+
+    });
+
+    const finalSummaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(14);
+
+    doc.text(
+      `Subtotal Revenue: $${subtotalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY
+    );
+
+    doc.text(
+      `Tax Collected: $${taxAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 10
+    );
+
+    doc.text(
+      `Final Revenue: $${finalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 20
+    );
+
+    doc.text(
+      `Total Bills: ${allBills.length}`,
+      14,
+      finalSummaryY + 30
+    );
+
+    doc.save(
+      "Daily-Report.pdf"
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+    alert("Daily PDF Error");
+
+  }
+
+};
+ 
+ 
+  // MONTHLY REPORT
+
+const downloadMonthlyReport = () => {
+
+  if (!reportMonth) {
+
+    alert("Select Month");
+
+    return;
+
+  }
+
+  try {
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+
+    doc.text("Monthly Report", 14, 20);
+
+    const [year, month] =
+      reportMonth.split("-");
+
+    let allBills = [];
+
+    historyBills.forEach((day) => {
+
+      if (
+        !day ||
+        !day.date ||
+        !Array.isArray(day.bills)
+      ) {
+
+        return;
+
+      }
+
+      const parts =
+        String(day.date).split("/");
+
+      const d = new Date(
+
+        Number(parts[2]),
+
+        Number(parts[0]) - 1,
+
+        Number(parts[1])
+
+      );
+
+      if (
+
+        d.getFullYear() ===
+          Number(year) &&
+
+        d.getMonth() + 1 ===
+          Number(month)
+
+      ) {
+
+        allBills.push(
+          ...day.bills
+        );
+
+      }
+
+    });
+
+    if (allBills.length === 0) {
+
+      alert("No Monthly Data");
+
+      return;
+
+    }
+
+    const tableData = [];
+
+    const itemSummary = {};
+
+    let subtotalAmount = 0;
+
+    let taxAmount = 0;
+
+    let finalAmount = 0;
+
+    allBills.forEach((bill) => {
+
+      subtotalAmount += Number(
+        bill.subtotal || 0
+      );
+
+      taxAmount += Number(
+        bill.tax || 0
+      );
+
+      finalAmount += Number(
+        bill.total || 0
+      );
+
+      const itemsText =
+        bill.items
+          .map(
+            (item) =>
+              `${item.itemName} (${item.qty})`
+          )
+          .join(", ");
+
+      tableData.push([
+
+        bill.billNo,
+
+        bill.customerName || "-",
+
+        bill.shiftPerson || "-",
+
+        bill.paymentMethod || "-",
+
+        itemsText,
+
+        `$${Number(
+          bill.total || 0
+        ).toFixed(2)}`,
+
+      ]);
+
+      bill.items.forEach((item) => {
+
+        if (
+          !itemSummary[
+            item.itemName
+          ]
+        ) {
+
+          itemSummary[
+            item.itemName
+          ] = {
+
+            qty: 0,
+
+            revenue: 0,
+
+          };
+
+        }
+
+        itemSummary[
+          item.itemName
+        ].qty += Number(item.qty);
+
+        itemSummary[
+          item.itemName
+        ].revenue += Number(
+          item.total
+        );
+
+      });
+
+    });
+
+    autoTable(doc, {
+
+      head: [[
+
+        "Bill No",
+
+        "Customer",
+
+        "Shift Person",
+
+        "Payment",
+
+        "Items",
+
+        "Final Total",
+
+      ]],
+
+      body: tableData,
+
+      startY: 30,
+
+    });
+
+    const summaryData =
+      Object.keys(
+        itemSummary
+      ).map((itemName) => [
+
+        itemName,
+
+        itemSummary[
+          itemName
+        ].qty,
+
+        `$${itemSummary[
+          itemName
+        ].revenue.toFixed(2)}`,
+
+      ]);
+
+    const summaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(16);
+
+    doc.text(
+      "Product Sales Summary",
+      14,
+      summaryY
+    );
+
+    autoTable(doc, {
+
+      startY: summaryY + 10,
+
+      head: [[
+        "Product",
+        "Qty Sold",
+        "Revenue",
+      ]],
+
+      body: summaryData,
+
+    });
+
+    const finalSummaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(14);
+
+    doc.text(
+      `Subtotal Revenue: $${subtotalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY
+    );
+
+    doc.text(
+      `Tax Collected: $${taxAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 10
+    );
+
+    doc.text(
+      `Final Revenue: $${finalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 20
+    );
+
+    doc.text(
+      `Total Bills: ${allBills.length}`,
+      14,
+      finalSummaryY + 30
+    );
+
+    doc.save(
+      "Monthly-Report.pdf"
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+    alert("Monthly PDF Error");
+
+  }
+
+};
+
+
+//yearly report 
+
+const downloadYearlyReport = () => {
+
+  if (!reportYear) {
+
+    alert("Enter Year");
+
+    return;
+
+  }
+
+  try {
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+
+    doc.text("Yearly Report", 14, 20);
+
+    let allBills = [];
+
+    historyBills.forEach((day) => {
+
+      if (
+        !day ||
+        !day.date ||
+        !Array.isArray(day.bills)
+      ) {
+
+        return;
+
+      }
+
+      const parts =
+        String(day.date).split("/");
+
+      const d = new Date(
+
+        Number(parts[2]),
+
+        Number(parts[0]) - 1,
+
+        Number(parts[1])
+
+      );
+
+      if (
+
+        d.getFullYear() ===
+        Number(reportYear)
+
+      ) {
+
+        allBills.push(
+          ...day.bills
+        );
+
+      }
+
+    });
+
+    if (allBills.length === 0) {
+
+      alert("No Yearly Data");
+
+      return;
+
+    }
+
+    // MONTH SUMMARY
+
+    const monthSummary = {};
+
+    // PRODUCT SUMMARY
+
+    const itemSummary = {};
+
+    let subtotalAmount = 0;
+
+    let taxAmount = 0;
+
+    let finalAmount = 0;
+
+    allBills.forEach((bill) => {
+
+      subtotalAmount += Number(
+        bill.subtotal || 0
+      );
+
+      taxAmount += Number(
+        bill.tax || 0
+      );
+
+      finalAmount += Number(
+        bill.total || 0
+      );
+
+      const parts =
+        String(bill.date).split("/");
+
+      const billDate =
+        new Date(
+
+          Number(parts[2]),
+
+          Number(parts[0]) - 1,
+
+          Number(parts[1])
+
+        );
+
+      const monthName =
+        billDate.toLocaleString(
+          "default",
+          { month: "long" }
+        );
+
+      // MONTH DATA
+
+      if (
+        !monthSummary[monthName]
+      ) {
+
+        monthSummary[
+          monthName
+        ] = {
+
+          bills: 0,
+
+          revenue: 0,
+
+        };
+
+      }
+
+      monthSummary[
+        monthName
+      ].bills += 1;
+
+      monthSummary[
+        monthName
+      ].revenue += Number(
+        bill.total || 0
+      );
+
+      // PRODUCT DATA
+
+      bill.items.forEach((item) => {
+
+        if (
+          !itemSummary[
+            item.itemName
+          ]
+        ) {
+
+          itemSummary[
+            item.itemName
+          ] = {
+
+            qty: 0,
+
+            revenue: 0,
+
+          };
+
+        }
+
+        itemSummary[
+          item.itemName
+        ].qty += Number(item.qty);
+
+        itemSummary[
+          item.itemName
+        ].revenue += Number(
+          item.total
+        );
+
+      });
+
+    });
+
+    // MONTH TABLE
+
+    const tableData =
+      Object.keys(
+        monthSummary
+      ).map((month) => [
+
+        month,
+
+        monthSummary[month]
+          .bills,
+
+        `$${monthSummary[
+          month
+        ].revenue.toFixed(2)}`,
+
+      ]);
+
+    autoTable(doc, {
+
+      head: [[
+
+        "Month",
+
+        "Total Bills",
+
+        "Revenue",
+
+      ]],
+
+      body: tableData,
+
+      startY: 30,
+
+    });
+
+    // PRODUCT SUMMARY TABLE
+
+    const summaryData =
+      Object.keys(
+        itemSummary
+      ).map((itemName) => [
+
+        itemName,
+
+        itemSummary[
+          itemName
+        ].qty,
+
+        `$${itemSummary[
+          itemName
+        ].revenue.toFixed(2)}`,
+
+      ]);
+
+    const summaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(16);
+
+    doc.text(
+      "Product Sales Summary",
+      14,
+      summaryY
+    );
+
+    autoTable(doc, {
+
+      startY: summaryY + 10,
+
+      head: [[
+        "Product",
+        "Qty Sold",
+        "Revenue",
+      ]],
+
+      body: summaryData,
+
+    });
+
+    // FINAL TOTALS
+
+    const finalSummaryY =
+      doc.lastAutoTable.finalY + 20;
+
+    doc.setFontSize(14);
+
+    doc.text(
+      `Subtotal Revenue: $${subtotalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY
+    );
+
+    doc.text(
+      `Tax Collected: $${taxAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 10
+    );
+
+    doc.text(
+      `Final Revenue: $${finalAmount.toFixed(2)}`,
+      14,
+      finalSummaryY + 20
+    );
+
+    doc.text(
+      `Total Bills: ${allBills.length}`,
+      14,
+      finalSummaryY + 30
+    );
+
+    doc.save(
+      "Yearly-Report.pdf"
+    );
+
+  } catch (error) {
+
+    console.log(error);
+
+    alert("Yearly PDF Error");
+
+  }
+
+};
+  // TODAY REVENUE
+
+  const todayRevenue =
+    todayBills.reduce(
+      (sum, bill) =>
+        sum + bill.total,
+      0
+    );
 
   return (
 
@@ -704,8 +1494,35 @@ function App() {
 
           <button
             onClick={() =>
-              setPage("history")
+              setPage("today")
             }
+          >
+            Today Bills
+          </button>
+
+          <button
+            onClick={() => {
+
+              const pass =
+                prompt(
+                  "Enter Admin Password"
+                );
+
+              if (
+                pass === ADMIN_PASSWORD
+              ) {
+
+                setPage("history");
+
+              } else {
+
+                alert(
+                  "Wrong Password"
+                );
+
+              }
+
+            }}
           >
             History
           </button>
@@ -714,316 +1531,440 @@ function App() {
 
       </div>
 
-      {/* BILLING PAGE */}
 
-      {page === "billing" && (
+      {/* BILLING */}
 
-        <div className="card-box">
+{page === "billing" && (
 
-          <h2>
-            Create Premium Bill
-          </h2>
+  <div className="card-box">
 
-          <div className="form-row">
+    <h2>
+      Create Premium Bill
+    </h2>
 
-            <input
-              type="text"
-              placeholder="Customer Name"
-              value={customerName}
-              onChange={(e) =>
-                setCustomerName(
-                  e.target.value
-                )
-              }
-            />
+    <div className="form-row">
 
-          </div>
+      <input
+        type="text"
+        placeholder="Customer Name"
+        value={customerName}
+        onChange={(e) =>
+          setCustomerName(
+            e.target.value
+          )
+        }
+      />
 
-          {/* TAX */}
+      <input
+        type="text"
+        placeholder="Shift Person"
+        value={shiftPerson}
+        onChange={(e) =>
+          setShiftPerson(
+            e.target.value
+          )
+        }
+      />
 
-          <div className="tax-box">
+    </div>
 
-            <input
-              type="text"
-              value={taxName}
-              placeholder="Tax Name"
-              onChange={(e) =>
-                setTaxName(
-                  e.target.value
-                )
-              }
-            />
+   <div className="tax-box">
 
-            <input
-              type="number"
-              value={taxRate}
-              placeholder="Tax %"
-              onChange={(e) =>
-                setTaxRate(
-                  Number(e.target.value)
-                )
-              }
-            />
+  {!taxUnlocked ? (
 
-          </div>
+    <button
+      onClick={() => {
 
-          {/* ITEM SECTION */}
+        const pass =
+          prompt(
+            "Enter Admin Password"
+          );
 
-          <div className="form-row">
+        if (
+          pass === ADMIN_PASSWORD
+        ) {
 
-            <input
-              type="text"
-              placeholder="Search Item..."
-              value={itemName}
-              onChange={(e) => {
+          setTaxUnlocked(true);
 
-                setItemName(
-                  e.target.value
-                );
+        } else {
 
-                const selectedProduct =
-                  products.find(
-                    (p) =>
-                      p.name.toLowerCase() ===
-                      e.target.value.toLowerCase()
-                  );
+          alert(
+            "Wrong Password"
+          );
 
-                if (selectedProduct) {
+        }
 
-                  setRate(
-                    Number(
-                      selectedProduct.rate
-                    )
-                  );
+      }}
+    >
+      Unlock Tax
+    </button>
 
-                }
+  ) : (
 
-              }}
-              list="menu-items"
-            />
+    <div
+      style={{
+        display: "flex",
+        gap: "10px",
+        alignItems: "center",
+        flexWrap: "wrap",
+      }}
+    >
 
-            <datalist id="menu-items">
+      <input
+        type="text"
+        value={taxName}
+        placeholder="Tax Name"
+        onChange={(e) =>
+          setTaxName(
+            e.target.value
+          )
+        }
+      />
 
-              {products?.map((product) => (
+      <input
+        type="number"
+        value={taxRate}
+        placeholder="Tax %"
+        onChange={(e) =>
+          setTaxRate(
+            Number(
+              e.target.value
+            )
+          )
+        }
+      />
 
-                <option
-                  key={product.id}
-                  value={product.name}
-                >
-                  {product.name}
-                </option>
+      <button
+        onClick={() => {
 
-              ))}
+          setTaxUnlocked(false);
 
-            </datalist>
+        }}
+      >
+        Lock Tax
+      </button>
 
-            <input
-              type="number"
-              value={rate}
-              readOnly
-              placeholder="Price"
-            />
+    </div>
 
-            <input
-              type="number"
-              value={qty}
-              min="1"
-              placeholder="Qty"
-              onChange={(e) =>
-                setQty(
-                  Number(
-                    e.target.value
-                  )
-                )
-              }
-            />
+  )}
 
-            <button
-              onClick={addItem}
-            >
-              Add Item
-            </button>
+</div>
 
-          </div>
+    <div className="form-row">
 
-          {/* TABLE */}
+      <div
+  style={{
+    width: "100%",
+    marginBottom: "20px",
+  }}
+>
 
-          <table>
+  <input
+    type="text"
+    placeholder="Search Menu Item..."
+    value={itemName}
+    onChange={(e) =>
+      setItemName(
+        e.target.value
+      )
+    }
+    style={{
+      width: "100%",
+      padding: "14px",
+      borderRadius: "12px",
+      border: "1px solid #ccc",
+      marginBottom: "15px",
+      fontSize: "16px",
+    }}
+  />
 
-            <thead>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        "repeat(auto-fit,minmax(180px,1fr))",
+      gap: "12px",
+      maxHeight: "250px",
+      overflowY: "auto",
+      padding: "5px",
+    }}
+  >
 
-              <tr>
+    {products
+      .filter((product) =>
+        product.name
+          .toLowerCase()
+          .includes(
+            itemName.toLowerCase()
+          )
+      )
+      .map((product) => (
 
-                <th>Item</th>
-                <th>Price</th>
-                <th>Qty</th>
-                <th>Total</th>
-                <th>Delete</th>
+        <div
+          key={product.id}
+          onClick={() => {
 
-              </tr>
+            setItemName(
+              product.name
+            );
 
-            </thead>
+            setRate(
+              Number(
+                product.rate
+              )
+            );
 
-            <tbody>
+          }}
+          style={{
+            padding: "15px",
+            borderRadius: "14px",
+            background: "#fff",
+            border:
+              "1px solid #eee",
+            cursor: "pointer",
+            boxShadow:
+              "0 2px 8px rgba(0,0,0,0.08)",
+            transition: "0.2s",
+          }}
+        >
 
-              {items.map((item, index) => (
-
-                <tr key={index}>
-
-                  <td>
-                    {item.itemName}
-                  </td>
-
-                  <td>
-                    ${item.rate}
-                  </td>
-
-                  <td>
-                    {item.qty}
-                  </td>
-
-                  <td>
-                    $
-                    {item.total.toFixed(2)}
-                  </td>
-
-                  <td>
-
-                    <button
-                      className="delete-btn"
-                      onClick={() =>
-                        removeItem(index)
-                      }
-                    >
-                      X
-                    </button>
-
-                  </td>
-
-                </tr>
-
-              ))}
-
-            </tbody>
-
-          </table>
-
-          {/* SUMMARY */}
-
-          <div className="summary">
-
-            <h3>
-              Subtotal :
-              $
-              {subtotal.toFixed(2)}
-            </h3>
-
-            <h3>
-              {taxName}
-              (
-              {taxRate}%)
-              :
-              $
-              {tax.toFixed(2)}
-            </h3>
-
-            <h2>
-              Grand Total :
-              $
-              {total.toFixed(2)}
-            </h2>
-
-          </div>
-
-          <button
-            className="save-btn"
-            onClick={saveBill}
+          <h4
+            style={{
+              margin: 0,
+              color: "#111",
+            }}
           >
-            Save Bill
-          </button>
+            {product.name}
+          </h4>
+
+          <p
+            style={{
+              marginTop: "8px",
+              fontWeight: "bold",
+              color: "#ff3d5a",
+            }}
+          >
+            ${product.rate}
+          </p>
 
         </div>
 
+      ))}
+
+  </div>
+
+</div>
+
+
+      <input
+        type="number"
+        value={rate}
+        readOnly
+        placeholder="Price"
+      />
+
+      <input
+        type="number"
+        value={qty}
+        min="1"
+        placeholder="Qty"
+        onChange={(e) =>
+          setQty(
+            Number(
+              e.target.value
+            )
+          )
+        }
+      />
+
+      <button
+        onClick={addItem}
+      >
+        Add Item
+      </button>
+
+    </div>
+
+    <div className="payment-box">
+
+      <select
+        value={paymentMethod}
+        onChange={(e) =>
+          setPaymentMethod(
+            e.target.value
+          )
+        }
+      >
+
+        <option value="Cash">
+          Cash
+        </option>
+
+        <option value="Credit Card">
+          Credit Card
+        </option>
+
+        <option value="Debit Card">
+          Debit Card
+        </option>
+
+      </select>
+
+      {paymentMethod ===
+        "Credit Card" && (
+
+        <select
+          value={cardType}
+          onChange={(e) =>
+            setCardType(
+              e.target.value
+            )
+          }
+        >
+
+          <option value="">
+            Select Card
+          </option>
+
+          <option value="Visa">
+            Visa
+          </option>
+
+          <option value="Master Card">
+            Master Card
+          </option>
+
+          <option value="American Express">
+            American Express
+          </option>
+
+        </select>
+
       )}
 
-      {/* HISTORY PAGE */}
+    </div>
 
-      {page === "history" && (
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>Item</th>
+          <th>Price</th>
+          <th>Qty</th>
+          <th>Total</th>
+          <th>Delete</th>
+
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        {items.map((item, index) => (
+
+          <tr key={index}>
+
+            <td>
+              {item.itemName}
+            </td>
+
+            <td>
+              ${item.rate}
+            </td>
+
+            <td>
+              {item.qty}
+            </td>
+
+            <td>
+              $
+              {item.total.toFixed(2)}
+            </td>
+
+            <td>
+
+              <button
+                onClick={() =>
+                  removeItem(index)
+                }
+              >
+                X
+              </button>
+
+            </td>
+
+          </tr>
+
+        ))}
+
+      </tbody>
+
+    </table>
+
+    <div className="summary">
+
+      <h3>
+        Subtotal :
+        $
+        {subtotal.toFixed(2)}
+      </h3>
+
+      <h3>
+        {taxName}
+        (
+        {taxRate}%)
+        :
+        $
+        {tax.toFixed(2)}
+      </h3>
+
+      <h2>
+        Grand Total :
+        $
+        {total.toFixed(2)}
+      </h2>
+
+    </div>
+
+    <button
+      className="save-btn"
+      onClick={saveBill}
+    >
+      Pay & Save Bill
+    </button>
+
+  </div>
+
+)}
+
+      {/* TODAY */}
+
+      {page === "today" && (
 
         <div className="card-box">
 
           <h2>
-            Billing History
+            Today Billing
           </h2>
 
-          <div className="summary">
+          <h3>
+            Revenue :
+            $
+            {todayRevenue.toFixed(2)}
+          </h3>
 
-            <h3>
-              Total Bills :
-              {bills.length}
-            </h3>
-
-            <h3>
-              Total Revenue :
-              $
-              {bills
-                .reduce(
-                  (sum, bill) =>
-                    sum + bill.total,
-                  0
-                )
-                .toFixed(2)}
-            </h3>
-
-          </div>
-
-          {/* REPORT SECTION */}
-
-          <div className="report-box">
-
-            <h3>
-              Download Reports
-            </h3>
-
-            <select
-              value={reportType}
-              onChange={(e) =>
-                setReportType(
-                  e.target.value
-                )
-              }
-            >
-
-              <option value="daily">
-                Daily Report
-              </option>
-
-              <option value="weekly">
-                Weekly Report
-              </option>
-
-              <option value="monthly">
-                Monthly Report
-              </option>
-
-              <option value="yearly">
-                Yearly Report
-              </option>
-
-            </select>
-
-            <button
-              onClick={downloadReport}
-              className="save-btn"
-            >
-              Download PDF Report
-            </button>
-
-          </div>
+          <button
+            className="save-btn"
+            onClick={closeShift}
+          >
+            Close Shift
+          </button>
 
           <div className="recent-history">
 
-            {bills.map((bill) => (
+            {todayBills.map((bill) => (
 
               <div
                 key={bill.id}
@@ -1041,7 +1982,8 @@ function App() {
                   </p>
 
                   <p>
-                    {bill.date}
+                    Payment :
+                    {bill.paymentMethod}
                   </p>
 
                   <p>
@@ -1103,173 +2045,532 @@ function App() {
 
           </div>
 
-        </div>
+{/* HIDDEN RECEIPT */}
 
-      )}
+{selectedBill && (
 
-      {/* HIDDEN RECEIPT */}
+  <div
+    style={{
+      position: "absolute",
+      left: "-9999px",
+      top: "0",
+    }}
+  >
+
+    <div
+      ref={receiptRef}
+      style={{
+        width: "280px",
+        padding: "10px",
+        background: "#fff",
+        color: "#000",
+        fontFamily: "Arial",
+        fontSize: "12px",
+      }}
+    >
+
+      {/* LOGO */}
 
       <div
-        ref={receiptRef}
         style={{
-          position: "absolute",
-          left: "-9999px",
-          background: "#fff",
-          padding: "20px",
-          width: "300px",
+          textAlign: "center",
         }}
       >
 
-        <div>
+        <img
+          src={logo}
+          alt="logo"
+          style={{
+            width: "120px",
+            marginBottom: "p4x",
+          }}
+        />
 
-          <div
-            style={{
-              textAlign: "center",
-            }}
-          >
 
-            <img
-              src={logo}
-              alt="logo"
-              style={{
-                width: "70px",
-                marginBottom: "8px",
-              }}
-            />
+        <p
+          style={{
+            margin: "1px 0",
+          }}
+        >
+          5471 Falsbridge Dr NE
+        </p>
 
-           
-            <p>
-            5471 Falsbridge Dr NE, Calgary,
-            </p>
-            <p>
-              AB T3J 3E8, Canada
-            </p>
+        <p
+          style={{
+            margin: "3px 0",
+          }}
+        >
+          Calgary, AB T3J 3E8
+        </p>
 
-          </div>
+      </div>
 
-          <hr />
+      <hr
+        style={{
+          borderStyle: "dashed",
+        }}
+      />
 
-          <p>
-            Customer :
-            {selectedBill?.customerName}
-          </p>
+      {/* BILL INFO */}
 
-          <hr />
+      <p>
+        Bill No :
+        {selectedBill.billNo}
+      </p>
 
-          <table className="receipt-table">
+      <p>
+        Customer :
+        {selectedBill.customerName}
+      </p>
 
-            <thead>
+      <p>
+        Date :
+        {selectedBill.date}
+      </p>
 
-              <tr>
+      <p>
+        Time :
+        {selectedBill.time}
+      </p>
 
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Total</th>
+      
+      <hr
+        style={{
+          borderStyle: "dashed",
+        }}
+      />
+
+      {/* ITEMS */}
+
+      <table
+        style={{
+          width: "100%",
+          borderCollapse:
+            "collapse",
+        }}
+      >
+
+        <thead>
+
+          <tr>
+
+            <th
+              align="left"
+            >
+              Item
+            </th>
+
+            <th>
+              Qty
+            </th>
+
+            <th
+              align="right"
+            >
+              Total
+            </th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          {selectedBill.items.map(
+            (
+              item,
+              index
+            ) => (
+
+              <tr key={index}>
+
+                <td>
+                  {
+                    item.itemName
+                  }
+                </td>
+
+                <td
+                  align="center"
+                >
+                  {item.qty}
+                </td>
+
+                <td
+                  align="right"
+                >
+                  $
+                  {Number(
+                    item.total
+                  ).toFixed(2)}
+                </td>
 
               </tr>
 
-            </thead>
+            )
+          )}
 
-            <tbody>
+        </tbody>
 
-              {(selectedBill?.items || []).map(
-                (item, index) => (
+      </table>
 
-                  <tr key={index}>
+      <hr
+        style={{
+          borderStyle: "dashed",
+        }}
+      />
 
-                    <td>
-                      {item.itemName}
-                    </td>
+      {/* TOTALS */}
 
-                    <td>
-                      {item.qty}
-                    </td>
+      <div>
 
-                    <td>
-                      $
-                      {item.total.toFixed(2)}
-                    </td>
+        <p>
+          Subtotal :
+          $
+          {Number(
+            selectedBill.subtotal
+          ).toFixed(2)}
+        </p>
 
-                  </tr>
+        <p>
+          {
+            selectedBill.taxName
+          }
+          (
+          {
+            selectedBill.taxRate
+          }
+          %) :
+          $
+          {Number(
+            selectedBill.tax
+          ).toFixed(2)}
+        </p>
 
-                )
-              )}
+        <h2
+          style={{
+            marginTop: "10px",
+          }}
+        >
+          TOTAL :
+          $
+          {Number(
+            selectedBill.total
+          ).toFixed(2)}
+        </h2>
 
-            </tbody>
+      </div>
 
-          </table>
+      <hr
+        style={{
+          borderStyle: "dashed",
+        }}
+      />
 
-          <hr />
+      {/* FOOTER */}
 
-          <div className="receipt-summary">
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "15px",
+        }}
+      >
 
-            <p>
+        <h3>
+          THANK YOU ❤️
+        </h3>
 
-              <span>
-                Subtotal
-              </span>
-
-              <span>
-                $
-                {selectedBill?.subtotal?.toFixed(2)}
-              </span>
-
-            </p>
-
-            <p>
-
-              <span>
-                {selectedBill?.taxName}
-                (
-                {selectedBill?.taxRate}
-                %)
-              </span>
-
-              <span>
-                $
-                {selectedBill?.tax?.toFixed(2)}
-              </span>
-
-            </p>
-
-            <h3>
-
-              <span>
-                TOTAL
-              </span>
-
-              <span>
-                $
-                {selectedBill?.total?.toFixed(2)}
-              </span>
-
-            </h3>
-
-          </div>
-
-          <hr />
-
-          <div
-            style={{
-              textAlign: "center",
-              marginTop: "15px",
-              fontWeight: "bold",
-            }}
-          >
-
-            THANK YOU ❤️
-            <br />
-            VISIT AGAIN
-
-          </div>
-
-        </div>
+        <h3>
+          VISIT AGAIN
+        </h3>
 
       </div>
 
     </div>
 
+  </div>
+
+)}
+        </div>
+
+      )}
+
+      {/* HISTORY */}
+
+      {page === "history" && (
+
+  <div className="card-box">
+
+    <h2>
+      Daily History
+    </h2>
+<div
+  style={{
+    display: "flex",
+    gap: "10px",
+    marginBottom: "20px",
+    flexWrap: "wrap",
+  }}
+>
+
+  <input
+    type="date"
+    value={reportDate}
+    onChange={(e) =>
+      setReportDate(
+        e.target.value
+      )
+    }
+  />
+
+  <input
+    type="month"
+    value={reportMonth}
+    onChange={(e) =>
+      setReportMonth(
+        e.target.value
+      )
+    }
+  />
+
+  <input
+    type="number"
+    placeholder="Year"
+    value={reportYear}
+    onChange={(e) =>
+      setReportYear(
+        e.target.value
+      )
+    }
+  />
+
+</div>
+<div
+  style={{
+    display: "flex",
+    gap: "10px",
+    marginBottom: "20px",
+  }}
+>
+
+  <button
+    className="save-btn"
+    onClick={downloadDailyReport}
+  >
+    Daily Report
+  </button>
+
+  <button
+    className="save-btn"
+    onClick={downloadMonthlyReport}
+  >
+    Monthly Report
+  </button>
+
+  <button
+    className="save-btn"
+    onClick={downloadYearlyReport}
+  >
+    Yearly Report
+  </button>
+
+</div>
+    
+
+
+
+    {/* EMPTY HISTORY */}
+
+    {historyBills.length === 0 && (
+
+      <div
+        style={{
+          textAlign: "center",
+          marginTop: "30px",
+        }}
+      >
+
+        <h3>
+          No History Found
+        </h3>
+
+        <p>
+          First close today's shift.
+        </p>
+
+      </div>
+
+    )}
+
+    {/* HISTORY DATA */}
+
+    {Array.isArray(historyBills) &&
+      historyBills.map((day) => (
+
+        <div
+          key={day.id}
+          className="history-card"
+          style={{
+            cursor: "pointer",
+          }}
+          onClick={() => {
+
+            setSelectedDay(
+              day.date || ""
+            );
+
+            setSelectedDayBills(
+              day.bills || []
+            );
+
+            setPage(
+              "dayDetails"
+            );
+
+          }}
+        >
+
+          <h3>
+            {day.date}
+          </h3>
+
+          <p>
+            Revenue :
+            $
+            {Number(
+              day.totalRevenue || 0
+            ).toFixed(2)}
+          </p>
+
+          <p>
+            Bills :
+            {day.billsCount || 0}
+          </p>
+
+        </div>
+
+      ))}
+
+  </div>
+
+)}
+      {/* DAY DETAILS */}
+
+      {page === "dayDetails" && (
+
+        <div className="card-box">
+
+          <button
+            className="save-btn"
+            onClick={() =>
+              setPage("history")
+            }
+          >
+            Back
+          </button>
+
+          <h2>
+            {selectedDay}
+          </h2>
+
+          {selectedDayBills.map(
+            (bill) => (
+
+              <div
+                key={bill.id}
+                className="history-card"
+                onClick={() => {
+
+                  setSelectedBill(
+                    bill
+                  );
+
+                  setPage(
+                    "billDetails"
+                  );
+
+                }}
+                style={{
+                  cursor: "pointer",
+                }}
+              >
+
+                <h3>
+                  {bill.billNo}
+                </h3>
+
+                <p>
+                  Customer :
+                  {bill.customerName}
+                </p>
+
+                <p>
+                  Payment :
+                  {bill.paymentMethod}
+                </p>
+
+                <p>
+                  Time :
+                  {bill.time}
+                </p>
+
+                <p>
+                  Total :
+                  $
+                  {bill.total.toFixed(2)}
+                </p>
+
+              </div>
+
+            )
+          )}
+
+        </div>
+
+      )}
+
+      {/* BILL DETAILS */}
+
+      {page === "billDetails" && (
+
+        <div className="card-box">
+
+          <button
+            className="save-btn"
+            onClick={() =>
+              setPage("dayDetails")
+            }
+          >
+            Back
+          </button>
+
+          <h2>
+            {selectedBill?.billNo}
+          </h2>
+
+          <h3>
+            Customer :
+            {selectedBill?.customerName}
+          </h3>
+
+          <p>
+            Payment :
+            {selectedBill?.paymentMethod}
+          </p>
+
+          <p>
+            Time :
+            {selectedBill?.time}
+          </p>
+
+        </div>
+
+      )}
+
+    </div>
+
   );
+  
 
 }
 
