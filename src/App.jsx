@@ -911,14 +911,13 @@ const downloadMonthlyReport = () => {
 
       const d = new Date(
 
-        Number(parts[2]),
+  Number(parts[2]),
 
-        Number(parts[0]) - 1,
+  Number(parts[1]) - 1,
 
-        Number(parts[1])
+  Number(parts[0])
 
-      );
-
+);
       if (
 
         d.getFullYear() ===
@@ -1176,15 +1175,15 @@ const downloadYearlyReport = () => {
       const parts =
         String(day.date).split("/");
 
-      const d = new Date(
+     const d = new Date(
 
-        Number(parts[2]),
+  Number(parts[2]),
 
-        Number(parts[0]) - 1,
+  Number(parts[1]) - 1,
 
-        Number(parts[1])
+  Number(parts[0])
 
-      );
+);
 
       if (
 
