@@ -652,8 +652,8 @@ const groupedDate =
       const parts =
         String(day.date).split("/");
 
-      const formattedDate =
-        `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+     const formattedDate =
+`${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
 
       if (
         formattedDate === reportDate
