@@ -417,69 +417,7 @@ const currentDate =
 
     setCardType("");
 
-    // SAVE TO SUPABASE
-
-supabase
-  .from("bills")
-  .insert([
-    {
-
-      billNo:
-        bill.billNo,
-
-      customerName:
-        bill.customerName,
-
-      shiftPerson:
-        bill.shiftPerson,
-
-      paymentMethod:
-        bill.paymentMethod,
-
-      cardType:
-        bill.cardType,
-
-      subtotal:
-        bill.subtotal,
-
-      tax:
-        bill.tax,
-
-      total:
-        bill.total,
-
-      taxName:
-        bill.taxName,
-
-      taxRate:
-        bill.taxRate,
-
-      items:
-        bill.items,
-
-      billDate:
-        bill.date,
-
-      billTime:
-        bill.time,
-
-    },
-  ])
-  .then(({ error }) => {
-
-    if (error) {
-
-      console.log(error);
-
-    } else {
-
-      console.log(
-        "Saved to Supabase"
-      );
-
-    }
-
-  });
+    
 
     alert("Bill Saved");
 
