@@ -617,75 +617,106 @@ const groupedDate =
   // REPORT
 
   //daily report 
- const downloadDailyReport = () => {
+ 
+  const downloadDailyReport = () => {
 
   if (!reportDate) {
-
     alert("Select Date");
-
     return;
-
   }
 
   try {
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
     doc.setFontSize(18);
-
     doc.text("Daily Report", 14, 20);
+
+   
+
+
 
     let allBills = [];
 
-    historyBills.forEach((day) => {
+historyBills.forEach((day) => {
 
-      if (
-        !day ||
-        !day.date ||
-        !Array.isArray(day.bills)
-      ) {
+  if (
+    !day ||
+    !day.date ||
+    !Array.isArray(day.bills)
+  ) {
+    return;
+  }
 
-        return;
+  const parts =
+    String(day.date).split("/");
 
+  const formattedDate =
+    `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+
+  if (formattedDate === reportDate) {
+    allBills.push(...day.bills);
+  }
+
+});
+
+ 
+         if (allBills.length === 0) {
+      alert("No Data Found");
+      return;
+    }
+
+    const tableData = [];
+    const itemSummary = {};
+
+    let subtotalAmount = 0;
+    let taxAmount = 0;
+    let finalAmount = 0;
+
+    const paymentSummary = {
+      Cash: 0,
+      CreditCard: 0,
+      DebitCard: 0,
+    };
+
+    const cardSummary = {};
+
+    allBills.forEach((bill) => {
+
+      if (bill.paymentMethod === "Cash") {
+        paymentSummary.Cash += Number(
+          bill.total || 0
+        );
       }
 
-      const parts =
-        String(day.date).split("/");
+      if (bill.paymentMethod === "Credit Card") {
 
-     const formattedDate =
-`${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        paymentSummary.CreditCard += Number(
+          bill.total || 0
+        );
 
-      if (
-        formattedDate === reportDate
-      ) {
+        const card =
+          bill.cardType || "Unknown";
 
-        allBills.push(
-          ...day.bills
+        if (!cardSummary[card]) {
+          cardSummary[card] = 0;
+        }
+
+        cardSummary[card] += Number(
+          bill.total || 0
         );
 
       }
 
-    });
-
-    if (allBills.length === 0) {
-
-      alert("No Data Found");
-
-      return;
-
-    }
-
-    const tableData = [];
-
-    const itemSummary = {};
-
-    let subtotalAmount = 0;
-
-    let taxAmount = 0;
-
-    let finalAmount = 0;
-
-    allBills.forEach((bill) => {
+      if (bill.paymentMethod === "Debit Card") {
+        paymentSummary.DebitCard += Number(
+          bill.total || 0
+        );
+      }
 
       subtotalAmount += Number(
         bill.subtotal || 0
@@ -708,167 +739,178 @@ const groupedDate =
           .join(", ");
 
       tableData.push([
-
         bill.billNo,
-
         bill.customerName || "-",
-
         bill.shiftPerson || "-",
-
         bill.paymentMethod || "-",
-
         itemsText,
-
         `$${Number(
           bill.total || 0
         ).toFixed(2)}`,
-
       ]);
 
       bill.items.forEach((item) => {
 
-        if (
-          !itemSummary[
-            item.itemName
-          ]
-        ) {
+        if (!itemSummary[item.itemName]) {
 
-          itemSummary[
-            item.itemName
-          ] = {
-
+          itemSummary[item.itemName] = {
             qty: 0,
-
             revenue: 0,
-
           };
 
         }
 
-        itemSummary[
-          item.itemName
-        ].qty += Number(item.qty);
+        itemSummary[item.itemName].qty +=
+          Number(item.qty);
 
-        itemSummary[
-          item.itemName
-        ].revenue += Number(
-          item.total
-        );
+        itemSummary[item.itemName].revenue +=
+          Number(item.total);
 
       });
 
     });
 
     autoTable(doc, {
-
       head: [[
-
         "Bill No",
-
         "Customer",
-
         "Shift Person",
-
         "Payment",
-
         "Items",
-
         "Final Total",
-
       ]],
-
       body: tableData,
-
       startY: 30,
-
     });
 
     const summaryData =
-      Object.keys(
-        itemSummary
-      ).map((itemName) => [
-
-        itemName,
-
-        itemSummary[
-          itemName
-        ].qty,
-
-        `$${itemSummary[
-          itemName
-        ].revenue.toFixed(2)}`,
-
-      ]);
-
-    const summaryY =
-      doc.lastAutoTable.finalY + 20;
-
-    doc.setFontSize(16);
+      Object.keys(itemSummary).map(
+        (itemName) => [
+          itemName,
+          itemSummary[itemName].qty,
+          `$${itemSummary[itemName].revenue.toFixed(2)}`,
+        ]
+      );
 
     doc.text(
       "Product Sales Summary",
       14,
-      summaryY
+      doc.lastAutoTable.finalY + 15
     );
 
     autoTable(doc, {
-
-      startY: summaryY + 10,
-
+      startY:
+        doc.lastAutoTable.finalY + 20,
       head: [[
         "Product",
         "Qty Sold",
         "Revenue",
       ]],
-
       body: summaryData,
-
     });
 
-    const finalSummaryY =
-      doc.lastAutoTable.finalY + 20;
-
-    doc.setFontSize(14);
-
     doc.text(
-      `Subtotal Revenue: $${subtotalAmount.toFixed(2)}`,
+      "Payment Summary",
       14,
-      finalSummaryY
+      doc.lastAutoTable.finalY + 15
     );
 
-    doc.text(
-      `Tax Collected: $${taxAmount.toFixed(2)}`,
-      14,
-      finalSummaryY + 10
-    );
+    autoTable(doc, {
+      startY:
+        doc.lastAutoTable.finalY + 20,
+      head: [[
+        "Payment Type",
+        "Amount",
+      ]],
+      body: [
+        [
+          "Cash",
+          `$${paymentSummary.Cash.toFixed(2)}`
+        ],
+        [
+          "Credit Card",
+          `$${paymentSummary.CreditCard.toFixed(2)}`
+        ],
+        [
+          "Debit Card",
+          `$${paymentSummary.DebitCard.toFixed(2)}`
+        ],
+      ],
+    });
 
-    doc.text(
-      `Final Revenue: $${finalAmount.toFixed(2)}`,
-      14,
-      finalSummaryY + 20
-    );
+    const cardData =
+      Object.keys(cardSummary).map(
+        (card) => [
+          card,
+          `$${cardSummary[card].toFixed(2)}`
+        ]
+      );
 
-    doc.text(
-      `Total Bills: ${allBills.length}`,
-      14,
-      finalSummaryY + 30
-    );
+    if (cardData.length > 0) {
 
-    doc.save(
-      "Daily-Report.pdf"
-    );
+      doc.text(
+        "Card Type Summary",
+        14,
+        doc.lastAutoTable.finalY + 15
+      );
 
-  } catch (error) {
+      autoTable(doc, {
+        startY:
+          doc.lastAutoTable.finalY + 20,
+        head: [[
+          "Card Type",
+          "Amount",
+        ]],
+        body: cardData,
+      });
 
-    console.log(error);
+    }
 
-    alert("Daily PDF Error");
+    autoTable(doc, {
+      startY:
+        doc.lastAutoTable.finalY + 20,
+      head: [[
+        "Summary",
+        "Value",
+      ]],
+      body: [
+        [
+          "Subtotal Revenue",
+          `$${subtotalAmount.toFixed(2)}`
+        ],
+        [
+          "Tax Collected",
+          `$${taxAmount.toFixed(2)}`
+        ],
+        [
+          "Final Revenue",
+          `$${finalAmount.toFixed(2)}`
+        ],
+        [
+          "Total Bills",
+          String(allBills.length)
+        ],
+      ],
+    });
 
-  }
+    doc.save("Daily-Report.pdf");
+
+  } 
+  catch (error) {
+
+  console.error(error);
+
+  alert(
+    "Daily PDF Error: " +
+    error.message
+  );
+
+}
 
 };
- 
- 
+
+
+
   // MONTHLY REPORT
 
 const downloadMonthlyReport = () => {
@@ -883,8 +925,11 @@ const downloadMonthlyReport = () => {
 
   try {
 
-    const doc = new jsPDF();
-
+const doc = new jsPDF({
+  orientation: "portrait",
+  unit: "mm",
+  format: "a4",
+});
     doc.setFontSize(18);
 
     doc.text("Monthly Report", 14, 20);
@@ -954,7 +999,49 @@ const downloadMonthlyReport = () => {
 
     let finalAmount = 0;
 
+
+    const paymentSummary = {
+  Cash: 0,
+  CreditCard: 0,
+  DebitCard: 0,
+};
+
+const cardSummary = {};
+
     allBills.forEach((bill) => {
+
+if (bill.paymentMethod === "Cash") {
+  paymentSummary.Cash += Number(
+    bill.total || 0
+  );
+}
+
+if (
+  bill.paymentMethod ===
+  "Credit Card"
+) {
+  paymentSummary.CreditCard +=
+    Number(bill.total || 0);
+
+  const card =
+    bill.cardType || "Unknown";
+
+  if (!cardSummary[card]) {
+    cardSummary[card] = 0;
+  }
+
+  cardSummary[card] += Number(
+    bill.total || 0
+  );
+}
+
+if (
+  bill.paymentMethod ===
+  "Debit Card"
+) {
+  paymentSummary.DebitCard +=
+    Number(bill.total || 0);
+}
 
       subtotalAmount += Number(
         bill.subtotal || 0
@@ -1094,35 +1181,85 @@ const downloadMonthlyReport = () => {
 
     });
 
+const paymentY =
+  doc.lastAutoTable.finalY + 20;
+
+doc.setFontSize(16);
+
+doc.text(
+  "Payment Summary",
+  14,
+  paymentY
+);
+
+autoTable(doc, {
+  startY: paymentY + 10,
+
+  head: [[
+    "Payment Type",
+    "Amount",
+  ]],
+
+  body: [
+    [
+      "Cash",
+      `$${paymentSummary.Cash.toFixed(
+        2
+      )}`,
+    ],
+
+    [
+      "Credit Card",
+      `$${paymentSummary.CreditCard.toFixed(
+        2
+      )}`,
+    ],
+
+    [
+      "Debit Card",
+      `$${paymentSummary.DebitCard.toFixed(
+        2
+      )}`,
+    ],
+  ],
+});
+
+    
     const finalSummaryY =
       doc.lastAutoTable.finalY + 20;
 
     doc.setFontSize(14);
+autoTable(doc, {
+  startY: doc.lastAutoTable.finalY + 20,
 
-    doc.text(
-      `Subtotal Revenue: $${subtotalAmount.toFixed(2)}`,
-      14,
-      finalSummaryY
-    );
+  head: [[
+    "Summary",
+    "Value",
+  ]],
 
-    doc.text(
-      `Tax Collected: $${taxAmount.toFixed(2)}`,
-      14,
-      finalSummaryY + 10
-    );
+  body: [
+    [
+      "Subtotal Revenue",
+      `$${subtotalAmount.toFixed(2)}`
+    ],
 
-    doc.text(
-      `Final Revenue: $${finalAmount.toFixed(2)}`,
-      14,
-      finalSummaryY + 20
-    );
+    [
+      "Tax Collected",
+      `$${taxAmount.toFixed(2)}`
+    ],
 
-    doc.text(
-      `Total Bills: ${allBills.length}`,
-      14,
-      finalSummaryY + 30
-    );
+    [
+      "Final Revenue",
+      `$${finalAmount.toFixed(2)}`
+    ],
 
+    [
+      "Total Bills",
+      allBills.length
+    ],
+  ],
+});
+    
     doc.save(
       "Monthly-Report.pdf"
     );
@@ -1152,8 +1289,11 @@ const downloadYearlyReport = () => {
 
   try {
 
-    const doc = new jsPDF();
-
+const doc = new jsPDF({
+  orientation: "portrait",
+  unit: "mm",
+  format: "a4",
+});
     doc.setFontSize(18);
 
     doc.text("Yearly Report", 14, 20);
@@ -1185,12 +1325,14 @@ const downloadYearlyReport = () => {
 
 );
 
-      if (
 
-        d.getFullYear() ===
-        Number(reportYear)
+if (
+  String(d.getFullYear()) ===
+  String(reportYear)
+)
 
-      ) {
+      
+{
 
         allBills.push(
           ...day.bills
@@ -1222,7 +1364,49 @@ const downloadYearlyReport = () => {
 
     let finalAmount = 0;
 
+const paymentSummary = {
+  Cash: 0,
+  CreditCard: 0,
+  DebitCard: 0,
+};
+
+const cardSummary = {};
+
     allBills.forEach((bill) => {
+
+if (bill.paymentMethod === "Cash") {
+  paymentSummary.Cash += Number(
+    bill.total || 0
+  );
+}
+
+if (
+  bill.paymentMethod ===
+  "Credit Card"
+) {
+  paymentSummary.CreditCard +=
+    Number(bill.total || 0);
+
+  const card =
+    bill.cardType || "Unknown";
+
+  if (!cardSummary[card]) {
+    cardSummary[card] = 0;
+  }
+
+  cardSummary[card] += Number(
+    bill.total || 0
+  );
+}
+
+if (
+  bill.paymentMethod ===
+  "Debit Card"
+) {
+  paymentSummary.DebitCard +=
+    Number(bill.total || 0);
+}
+
 
       subtotalAmount += Number(
         bill.subtotal || 0
@@ -1237,19 +1421,16 @@ const downloadYearlyReport = () => {
       );
 
       const parts =
-        String(bill.date).split("/");
+  String(bill.date).split("/");
 
-      const billDate =
-        new Date(
+if (parts.length !== 3) return;
 
-          Number(parts[2]),
-
-          Number(parts[0]) - 1,
-
-          Number(parts[1])
-
-        );
-
+const billDate =
+  new Date(
+    Number(parts[2]),     // Year
+    Number(parts[1]) - 1, // Month
+    Number(parts[0])      // Day
+  );           
       const monthName =
         billDate.toLocaleString(
           "default",
@@ -1358,6 +1539,48 @@ const downloadYearlyReport = () => {
 
     // PRODUCT SUMMARY TABLE
 
+const paymentY =
+  doc.lastAutoTable.finalY + 20;
+
+doc.setFontSize(16);
+
+doc.text(
+  "Payment Summary",
+  14,
+  paymentY
+);
+
+autoTable(doc, {
+  startY: doc.lastAutoTable.finalY + 20,
+
+  head: [[
+    "Summary",
+    "Value",
+  ]],
+
+  body: [
+    [
+      "Subtotal Revenue",
+      `$${subtotalAmount.toFixed(2)}`
+    ],
+
+    [
+      "Tax Collected",
+      `$${taxAmount.toFixed(2)}`
+    ],
+
+    [
+      "Final Revenue",
+      `$${finalAmount.toFixed(2)}`
+    ],
+
+    [
+      "Total Bills",
+      allBills.length
+    ],
+  ],
+});
+
     const summaryData =
       Object.keys(
         itemSummary
@@ -1445,6 +1668,66 @@ const downloadYearlyReport = () => {
 
 };
   // TODAY REVENUE
+
+  const saveAndPrintBill = () => {
+
+  if (items.length === 0) {
+    alert("Add items");
+    return;
+  }
+
+  const today = new Date();
+
+  const currentDate =
+    `${String(today.getDate()).padStart(2, "0")}/${
+      String(today.getMonth() + 1).padStart(2, "0")
+    }/${today.getFullYear()}`;
+
+  const currentTime =
+    today.toLocaleTimeString();
+
+  const bill = {
+    id: Date.now(),
+    billNo: "BILL-" + billCounter,
+    customerName,
+    shiftPerson,
+    paymentMethod,
+    cardType,
+    date: currentDate,
+    time: currentTime,
+    items,
+    subtotal,
+    tax,
+    total,
+    taxName,
+    taxRate,
+  };
+
+  setTodayBills([bill, ...todayBills]);
+
+  setSelectedBill(bill);
+
+  setBillCounter(prev => prev + 1);
+
+  setTimeout(() => {
+    printBill();
+  }, 1000);
+
+  setTimeout(() => {
+
+    setItems([]);
+    setItemName("");
+    setRate("");
+    setQty(1);
+    setCustomerName("");
+    setShiftPerson("");
+    setPaymentMethod("Cash");
+    setCardType("");
+
+  }, 1500);
+
+  alert("Bill Saved & Printing...");
+};
 
   const todayRevenue =
     todayBills.reduce(
@@ -1935,6 +2218,7 @@ const downloadYearlyReport = () => {
     >
       Pay & Save Bill
     </button>
+    
 
   </div>
 
@@ -2334,16 +2618,14 @@ const downloadYearlyReport = () => {
     }
   />
 
-  <input
-    type="number"
-    placeholder="Year"
-    value={reportYear}
-    onChange={(e) =>
-      setReportYear(
-        e.target.value
-      )
-    }
-  />
+ <input
+  type="text"
+  placeholder="2026"
+  value={reportYear}
+  onChange={(e) =>
+    setReportYear(e.target.value)
+  }
+/>
 
 </div>
 <div
